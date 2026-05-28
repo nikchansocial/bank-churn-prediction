@@ -1,4 +1,3 @@
-```python
 import os
 import streamlit as st
 import pandas as pd
@@ -451,4 +450,3 @@ Banking Analytics & Predictive Intelligence Portfolio
 
 </p>
 """, unsafe_allow_html=True)
-```
