@@ -21,7 +21,7 @@ An interactive Streamlit dashboard was developed to transform raw banking data i
 
 🚀 Streamlit Dashboard:
 
-https://bank-customer-churn-prediction-ml.streamlit.app/
+[https://bank-customer-churn-prediction-ml.streamlit.app/](https://bank-customer-churn-prediction-ml-nikchansocial.streamlit.app/)
 
 ---
 
@@ -62,7 +62,7 @@ This project applies machine learning, customer analytics, and business intellig
 
 ## Dashboard Preview
 
-![Dashboard Preview](assets/Dashboard_Snaps.pdf)
+[![Dashboard Preview](assets/Dashboard_Snaps.pdf)](https://bank-customer-churn-prediction-ml-nikchansocial.streamlit.app/)
 
 ---
 
