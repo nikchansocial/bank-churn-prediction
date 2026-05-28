@@ -62,7 +62,7 @@ This project applies machine learning, customer analytics, and business intellig
 
 ## Dashboard Preview
 
-![Dashboard Preview](assets/dashboard-preview.png)
+![Dashboard Preview](assets/Dashboard_Snaps.pdf)
 
 ---
 
