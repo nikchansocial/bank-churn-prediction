@@ -1,4 +1,6 @@
 import os
+import warnings
+warnings.filterwarnings("ignore")
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -20,18 +22,17 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap');
 
-    /* Force light canvas in BOTH light & dark mode (replaces config.toml) */
+    /* Force light canvas in both light & dark mode */
     .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
-    [data-testid="stHeader"], [data-testid="block-container"], .main, .block-container {
+    [data-testid="block-container"], .main, .block-container {
         background-color: #eef1f6 !important;
     }
     [data-testid="stHeader"] { background: transparent !important; }
-    html, body, [class*="css"], .stMarkdown, p, span, label, div { font-family:'Inter',sans-serif; }
-    /* Default all body text dark so it never turns white-on-light in dark mode */
-    .stApp, .stApp p, .stApp label, .stApp span, .stApp div,
-    [data-testid="stMarkdownContainer"], [data-testid="stMarkdownContainer"] * { color:#1a2233; }
+    html, body, .stMarkdown, .stMarkdown p, .stMarkdown span { font-family:'Inter',sans-serif; }
+    /* Dark text only on the MAIN area markdown (NOT the whole app — that broke the sidebar) */
+    [data-testid="stMain"] .stMarkdown, [data-testid="stMain"] .stMarkdown * { color:#1a2233; }
 
-    #MainMenu, footer, header { visibility: hidden; }
+    #MainMenu, footer { visibility: hidden; }
 
     .ecb-header { background:linear-gradient(120deg,#002244 0%,#003299 55%,#0050cc 100%); padding:28px 36px; border-radius:14px; margin-bottom:22px; border-left:7px solid #FFD700; box-shadow:0 8px 28px rgba(0,34,68,0.28); }
     .ecb-header h1 { color:#fff !important; font-family:'Sora',sans-serif; font-weight:800; font-size:30px; margin:0; letter-spacing:-0.5px; }
@@ -42,7 +43,7 @@ st.markdown("""
 
     .metric-card { background:#fff; border-radius:14px; padding:26px 20px; text-align:center; border-top:4px solid #003299; box-shadow:0 4px 16px rgba(0,0,0,0.07); transition:transform .2s ease; }
     .metric-card:hover { transform:translateY(-3px); }
-    .metric-value { font-family:'Sora',sans-serif; font-size:40px; font-weight:800; color:#003299; line-height:1; }
+    .metric-value { font-family:'Sora',sans-serif; font-size:40px; font-weight:800; color:#003299 !important; line-height:1; }
     .metric-label { font-size:12px; color:#6b7280 !important; text-transform:uppercase; letter-spacing:1.4px; margin-top:10px; font-weight:600; }
 
     .money-card { background:linear-gradient(135deg,#1c1f2b,#2d3142); border-radius:14px; padding:26px 20px; text-align:center; border-top:4px solid #FFD700; box-shadow:0 6px 20px rgba(0,0,0,0.18); }
@@ -66,17 +67,21 @@ st.markdown("""
     .behav-tag { display:inline-block; background:#e8eefb; color:#003299 !important; border-radius:20px; padding:5px 14px; margin:4px 4px 0 0; font-size:12.5px; font-weight:600; }
     .whatif-box { background:#fff; border-radius:12px; padding:18px 22px; box-shadow:0 3px 12px rgba(0,0,0,0.06); border-left:5px solid #0050cc; color:#1a2233; }
 
-    /* SIDEBAR — force navy bg + readable text in BOTH modes */
-    [data-testid="stSidebar"], [data-testid="stSidebar"] > div { background:linear-gradient(180deg,#002244,#003299) !important; }
-    [data-testid="stSidebar"] *, [data-testid="stSidebar"] label, [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] span, [data-testid="stSidebar"] .stMarkdown { color:#eaf0ff !important; }
-    [data-testid="stSidebar"] h2 { color:#FFD700 !important; font-family:'Sora',sans-serif; }
-    [data-testid="stSidebar"] [data-testid="stTickBarMin"],
-    [data-testid="stSidebar"] [data-testid="stTickBarMax"],
-    [data-testid="stSidebar"] [data-testid="stThumbValue"] { color:#FFD700 !important; }
-    [data-testid="stSidebar"] [data-baseweb="select"] > div,
-    [data-testid="stSidebar"] input { background:#ffffff !important; color:#1a2233 !important; border-radius:8px !important; }
-    [data-testid="stSidebar"] [data-baseweb="select"] > div div { color:#1a2233 !important; }
+    /* ===== SIDEBAR — LIGHT, MINIMAL, NEVER HIDES CONTROLS ===== */
+    /* Soft off-white sidebar with a blue accent strip. We do NOT touch
+       input internals, dropdown arrows, or the collapse control. */
+    [data-testid="stSidebar"] {
+        background:#f7f9fc !important;
+        border-right:3px solid #003299;
+    }
+    [data-testid="stSidebar"] h2 { color:#003299 !important; font-family:'Sora',sans-serif; }
+    [data-testid="stSidebar"] label { color:#1a2233 !important; font-weight:600; }
+    .sidebar-group {
+        background:#eef2fa; border-radius:8px; padding:4px 12px 2px 12px;
+        margin:10px 0 4px 0; border-left:4px solid #003299;
+        font-family:'Sora',sans-serif; font-size:12px; font-weight:700;
+        color:#003299; text-transform:uppercase; letter-spacing:1px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -94,21 +99,25 @@ st.markdown("""
 # SIDEBAR — CUSTOMER INPUTS
 # ============================================================
 st.sidebar.markdown("## ⚙️ Customer Profile")
-st.sidebar.markdown("---")
+st.sidebar.caption("Adjust the filters below to score a customer.")
 
-credit_score = st.sidebar.slider("Credit Score", 300, 850, 650)
+st.sidebar.markdown('<div class="sidebar-group">👤 Demographics</div>', unsafe_allow_html=True)
 age = st.sidebar.slider("Age", 18, 92, 40)
-tenure = st.sidebar.slider("Tenure (Years)", 0, 10, 5)
+gender = st.sidebar.selectbox("Gender", ["Female", "Male"])
+geography = st.sidebar.selectbox("Geography", ["France", "Germany", "Spain"])
+
+st.sidebar.markdown('<div class="sidebar-group">💳 Account & Financials</div>', unsafe_allow_html=True)
+credit_score = st.sidebar.slider("Credit Score", 300, 850, 650)
 balance = st.sidebar.number_input("Account Balance (€)", 0, 250000, 50000, step=1000)
+salary = st.sidebar.number_input("Estimated Salary (€)", 0, 200000, 100000, step=1000)
+tenure = st.sidebar.slider("Tenure (Years)", 0, 10, 5)
+
+st.sidebar.markdown('<div class="sidebar-group">📦 Engagement</div>', unsafe_allow_html=True)
 num_products = st.sidebar.selectbox("Number of Products", [1, 2, 3, 4])
 has_cr_card = st.sidebar.selectbox("Has Credit Card", [1, 0], format_func=lambda x: "Yes" if x == 1 else "No")
 is_active = st.sidebar.selectbox("Is Active Member", [1, 0], format_func=lambda x: "Yes" if x == 1 else "No")
-salary = st.sidebar.number_input("Estimated Salary (€)", 0, 200000, 100000, step=1000)
-geography = st.sidebar.selectbox("Geography", ["France", "Germany", "Spain"])
-gender = st.sidebar.selectbox("Gender", ["Female", "Male"])
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("**Decision Threshold**")
+st.sidebar.markdown('<div class="sidebar-group">🎚️ Model Setting</div>', unsafe_allow_html=True)
 threshold = st.sidebar.slider("Churn flag cutoff", 0.20, 0.60, 0.35, 0.05,
                               help="Lower threshold = higher recall (catches more churners). Tuned to 0.35 to improve recall per evaluator feedback.")
 
