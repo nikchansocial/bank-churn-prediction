@@ -14,9 +14,12 @@ from sklearn.model_selection import train_test_split
 st.set_page_config(page_title="Churn Intelligence", page_icon="◆", layout="wide")
 
 # ============================================================
-# THEME TOGGLE  (manual light / dark)
+# THEME TOGGLE — top of main area (read before CSS is built)
 # ============================================================
-mode = st.sidebar.radio("Appearance", ["🌙 Dark", "☀️ Light"], horizontal=True, index=0)
+_, tcol = st.columns([4, 1])
+with tcol:
+    mode = st.radio("Theme", ["🌙 Dark", "☀️ Light"], horizontal=True,
+                    index=0, label_visibility="collapsed")
 dark = mode.startswith("🌙")
 
 # Indigo + soft slate palette, two variants
@@ -49,75 +52,79 @@ st.markdown(f"""
     [data-testid="stMain"] .stMarkdown, [data-testid="stMain"] .stMarkdown * {{ color:{T['text']}; }}
     #MainMenu, footer {{ visibility:hidden; }}
 
-    /* tighter vertical rhythm = compact */
-    [data-testid="block-container"] {{ padding-top:2.2rem; padding-bottom:1rem; max-width:1150px; }}
-    [data-testid="stVerticalBlock"] {{ gap:0.55rem; }}
+    /* compact page rhythm */
+    [data-testid="block-container"] {{ padding-top:1.2rem; padding-bottom:1rem; max-width:1150px; }}
+    [data-testid="stVerticalBlock"] {{ gap:0.5rem; }}
 
-    /* ===== HEADER ===== */
-    .hd {{ display:flex; align-items:center; gap:14px; padding:18px 26px; border-radius:16px;
+    /* theme radio: small, right-aligned, subtle */
+    div[role="radiogroup"] {{ justify-content:flex-end; gap:4px; }}
+    div[role="radiogroup"] label {{ font-size:12px !important; padding:2px 8px; }}
+
+    /* ===== COMPACT HEADER ===== */
+    .hd {{ display:flex; align-items:center; gap:11px; padding:11px 18px; border-radius:13px;
           background:{T['panel']}; border:1px solid {T['border']};
-          box-shadow:{T['shadow']}; margin-bottom:16px; }}
-    .hd .mark {{ width:42px; height:42px; border-radius:11px; flex:0 0 auto;
+          box-shadow:{T['shadow']}; margin:2px 0 14px 0; }}
+    .hd .mark {{ width:32px; height:32px; border-radius:9px; flex:0 0 auto;
           background:linear-gradient(135deg,{T['accent']},{T['accent_soft']});
-          display:flex; align-items:center; justify-content:center; color:#fff; font-size:20px; font-weight:800;
-          box-shadow:0 4px 14px {T['accent']}55; }}
-    .hd h1 {{ font-family:'Sora',sans-serif; font-weight:800; font-size:21px; margin:0; color:{T['text']} !important; letter-spacing:-0.3px; }}
-    .hd p  {{ margin:2px 0 0 0; font-size:12px; color:{T['muted']} !important; letter-spacing:0.6px; font-weight:500; }}
+          display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; font-weight:800;
+          box-shadow:0 3px 11px {T['accent']}55; }}
+    .hd h1 {{ font-family:'Sora',sans-serif; font-weight:800; font-size:17px; margin:0; color:{T['text']} !important; letter-spacing:-0.2px; }}
+    .hd p  {{ margin:1px 0 0 0; font-size:11px; color:{T['muted']} !important; letter-spacing:0.5px; font-weight:500; }}
 
     /* ===== SECTION LABEL ===== */
-    .sec {{ font-family:'Sora',sans-serif; font-size:12px; font-weight:700; letter-spacing:1.4px;
-           text-transform:uppercase; color:{T['muted']} !important; margin:16px 0 8px 2px; }}
+    .sec {{ font-family:'Sora',sans-serif; font-size:11.5px; font-weight:700; letter-spacing:1.4px;
+           text-transform:uppercase; color:{T['muted']} !important; margin:13px 0 6px 2px; }}
 
     /* ===== CARDS ===== */
-    .card {{ background:{T['panel']}; border:1px solid {T['border']}; border-radius:14px;
-            padding:20px 18px; text-align:center; box-shadow:{T['shadow']};
+    .card {{ background:{T['panel']}; border:1px solid {T['border']}; border-radius:13px;
+            padding:17px 15px; text-align:center; box-shadow:{T['shadow']};
             transition:transform .18s ease, border-color .18s ease; height:100%; }}
     .card:hover {{ transform:translateY(-2px); border-color:{T['accent']}; }}
-    .card .v {{ font-family:'Sora',sans-serif; font-size:30px; font-weight:800; line-height:1; color:{T['accent']} !important; }}
-    .card .l {{ font-size:11px; color:{T['muted']} !important; text-transform:uppercase; letter-spacing:1.2px; margin-top:8px; font-weight:600; }}
+    .card .v {{ font-family:'Sora',sans-serif; font-size:28px; font-weight:800; line-height:1; color:{T['accent']} !important; }}
+    .card .l {{ font-size:11px; color:{T['muted']} !important; text-transform:uppercase; letter-spacing:1.1px; margin-top:7px; font-weight:600; }}
 
-    .money {{ background:{T['money_bg']}; border:1px solid {T['border']}; border-radius:14px; padding:20px 18px; text-align:center; box-shadow:{T['shadow']}; height:100%; }}
-    .money .v {{ font-family:'Sora',sans-serif; font-size:26px; font-weight:800; color:#a5b4fc !important; line-height:1; }}
-    .money .l {{ font-size:11px; color:#c7cbe0 !important; text-transform:uppercase; letter-spacing:1.2px; margin-top:8px; font-weight:600; }}
-    .money .s {{ font-size:11px; color:#9aa1c4 !important; margin-top:5px; }}
+    .money {{ background:{T['money_bg']}; border:1px solid {T['border']}; border-radius:13px; padding:17px 15px; text-align:center; box-shadow:{T['shadow']}; height:100%; }}
+    .money .v {{ font-family:'Sora',sans-serif; font-size:24px; font-weight:800; color:#a5b4fc !important; line-height:1; }}
+    .money .l {{ font-size:11px; color:#c7cbe0 !important; text-transform:uppercase; letter-spacing:1.1px; margin-top:7px; font-weight:600; }}
+    .money .s {{ font-size:10.5px; color:#9aa1c4 !important; margin-top:4px; }}
 
-    /* ===== PILL ROW (risk factors) ===== */
-    .pill {{ display:block; border-radius:10px; padding:11px 15px; margin:5px 0; font-size:13.5px; font-weight:500;
+    /* ===== PILLS ===== */
+    .pill {{ display:block; border-radius:10px; padding:10px 14px; margin:5px 0; font-size:13px; font-weight:500;
             border:1px solid {T['border']}; background:{T['panel2']}; }}
     .pill.bad  {{ border-left:4px solid {T['bad']};  color:{T['text']} !important; }}
     .pill.warn {{ border-left:4px solid {T['warn']}; color:{T['text']} !important; }}
     .pill.good {{ border-left:4px solid {T['good']}; color:{T['text']} !important; }}
 
-    /* ===== PLAYBOOK + WHATIF ===== */
-    .box {{ background:{T['panel']}; border:1px solid {T['border']}; border-radius:14px; padding:18px 22px; box-shadow:{T['shadow']}; }}
+    /* ===== BOXES ===== */
+    .box {{ background:{T['panel']}; border:1px solid {T['border']}; border-radius:13px; padding:16px 20px; box-shadow:{T['shadow']}; }}
     .box.accent {{ border-left:4px solid {T['accent']}; }}
-    .box h4 {{ font-family:'Sora',sans-serif; margin:0 0 8px 0; font-size:15px; color:{T['text']} !important; }}
+    .box h4 {{ font-family:'Sora',sans-serif; margin:0 0 7px 0; font-size:14.5px; color:{T['text']} !important; }}
     .box ul {{ margin:0; padding-left:18px; }}
-    .box li {{ margin:5px 0; color:{T['text']} !important; font-size:13.5px; line-height:1.45; opacity:0.9; }}
-    .box p  {{ color:{T['text']} !important; font-size:13.5px; margin:0; line-height:1.5; }}
+    .box li {{ margin:4px 0; color:{T['text']} !important; font-size:13px; line-height:1.4; opacity:0.9; }}
+    .box p  {{ color:{T['text']} !important; font-size:13px; margin:0; line-height:1.5; }}
 
     .tag {{ display:inline-block; background:{T['panel2']}; border:1px solid {T['border']};
-           color:{T['accent_soft']} !important; border-radius:20px; padding:5px 13px; margin:4px 4px 0 0; font-size:12px; font-weight:600; }}
+           color:{T['accent_soft']} !important; border-radius:20px; padding:5px 12px; margin:4px 4px 0 0; font-size:11.5px; font-weight:600; }}
 
     /* ===== FOOTER ===== */
-    .ft {{ text-align:center; margin-top:22px; padding:16px; border-top:1px solid {T['border']}; }}
-    .ft .name {{ font-family:'Sora',sans-serif; font-weight:700; font-size:13px; color:{T['text']} !important; }}
+    .ft {{ text-align:center; margin-top:20px; padding:14px; border-top:1px solid {T['border']}; }}
+    .ft .name {{ font-family:'Sora',sans-serif; font-weight:700; font-size:12.5px; color:{T['text']} !important; }}
     .ft .name span {{ color:{T['accent']} !important; }}
-    .ft .meta {{ font-size:11px; color:{T['muted']} !important; margin-top:3px; letter-spacing:0.4px; }}
+    .ft .meta {{ font-size:10.5px; color:{T['muted']} !important; margin-top:3px; letter-spacing:0.4px; }}
 
-    /* ===== SIDEBAR (light-touch, never hide controls) ===== */
+    /* ===== SIDEBAR (light-touch) ===== */
     [data-testid="stSidebar"] {{ background:{T['panel']} !important; border-right:1px solid {T['border']}; }}
     [data-testid="stSidebar"] h2, [data-testid="stSidebar"] label {{ color:{T['text']} !important; }}
     [data-testid="stSidebar"] .stCaption, [data-testid="stSidebar"] p {{ color:{T['muted']} !important; }}
     .sgroup {{ font-family:'Sora',sans-serif; font-size:11px; font-weight:700; letter-spacing:1px;
-              text-transform:uppercase; color:{T['accent']} !important; margin:14px 0 2px 2px; }}
+              text-transform:uppercase; color:{T['accent']} !important; margin:13px 0 2px 2px; }}
 
     .stProgress > div > div > div > div {{ background:{T['accent']} !important; }}
 </style>
 """, unsafe_allow_html=True)
 
 # ============================================================
-# HEADER
+# COMPACT HEADER
 # ============================================================
 st.markdown("""
 <div class="hd">
@@ -218,28 +225,28 @@ else:
 money_at_risk = prob * balance
 
 # ============================================================
-# RISK ASSESSMENT  (compact 4-up row)
+# RISK ASSESSMENT
 # ============================================================
 st.markdown('<div class="sec">Risk Assessment</div>', unsafe_allow_html=True)
 c1, c2, c3, c4 = st.columns(4)
 with c1:
     st.markdown(f'<div class="card"><div class="v">{prob*100:.1f}%</div><div class="l">Churn Probability</div></div>', unsafe_allow_html=True)
 with c2:
-    st.markdown(f'<div class="card"><div class="v" style="color:{rc} !important;font-size:22px">{risk_level}</div><div class="l">Risk Level</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="card"><div class="v" style="color:{rc} !important;font-size:21px">{risk_level}</div><div class="l">Risk Level</div></div>', unsafe_allow_html=True)
 with c3:
     ptxt = "Will Churn" if prediction == 1 else "Will Stay"
     pcol = T['bad'] if prediction == 1 else T['good']
-    st.markdown(f'<div class="card"><div class="v" style="color:{pcol} !important;font-size:20px">{ptxt}</div><div class="l">Prediction @ {threshold:.2f}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="card"><div class="v" style="color:{pcol} !important;font-size:19px">{ptxt}</div><div class="l">Prediction @ {threshold:.2f}</div></div>', unsafe_allow_html=True)
 with c4:
     st.markdown(f'<div class="money"><div class="v">€{money_at_risk:,.0f}</div><div class="l">Balance at Risk</div><div class="s">{prob*100:.0f}% × €{balance:,.0f}</div></div>', unsafe_allow_html=True)
 
 # Probability meter
 st.markdown('<div class="sec">Probability Meter</div>', unsafe_allow_html=True)
 st.progress(float(prob))
-st.markdown(f"<p style='text-align:center;color:{T['muted']};font-size:12.5px;font-weight:600'>Churn Risk {prob*100:.1f}% · Flag Threshold {threshold*100:.0f}%</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align:center;color:{T['muted']};font-size:12px;font-weight:600'>Churn Risk {prob*100:.1f}% · Flag Threshold {threshold*100:.0f}%</p>", unsafe_allow_html=True)
 
 # ============================================================
-# TWO-COLUMN: WHAT-IF  +  BEHAVIORAL SIGNALS
+# WHAT-IF + BEHAVIORAL SIGNALS
 # ============================================================
 left, right = st.columns([1, 1])
 
@@ -315,7 +322,7 @@ for col, (val, lab) in zip([p1, p2c, p3, p4],
                            [("Gradient Boosting", "Model"), ("87%", "Accuracy"),
                             ("60%", "Recall @ 0.35"), ("0.8675", "ROC-AUC")]):
     with col:
-        st.markdown(f'<div class="card"><div class="v" style="font-size:{16 if lab=="Model" else 24}px">{val}</div><div class="l">{lab}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="card"><div class="v" style="font-size:{15 if lab=="Model" else 23}px">{val}</div><div class="l">{lab}</div></div>', unsafe_allow_html=True)
 
 # ============================================================
 # PERSONAL FOOTER
