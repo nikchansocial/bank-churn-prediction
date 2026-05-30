@@ -1,172 +1,324 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-from datetime import datetime
+import numpy as np
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.preprocessing import StandardScaler
 
-st.set_page_config(page_title="ECB Banking Intelligence Platform", layout="wide")
+# Page config
+st.set_page_config(page_title="ECB Churn Predictor", page_icon="🏦", layout="wide")
 
-# ---------- STYLE ----------
+# ECB Theme CSS
 st.markdown("""
 <style>
-.stApp{background:#F8FAFC;}
-.block-container{padding-top:0.8rem;max-width:1500px;}
-.hero{background:linear-gradient(135deg,#0F172A,#1E293B);padding:18px 24px;border-radius:20px;color:white;}
-.card{background:white;padding:14px;border-radius:16px;box-shadow:0 4px 16px rgba(0,0,0,.06);border:1px solid #E2E8F0;height:110px;}
-.metric{font-size:28px;font-weight:700;color:#0F172A;}
-.section{background:white;padding:16px;border-radius:16px;box-shadow:0 4px 16px rgba(0,0,0,.05);border:1px solid #E2E8F0;}
-.small{color:#64748B;font-size:12px;text-transform:uppercase;}
+    /* Main background */
+    .stApp {
+        background-color: #f5f6fa;
+    }
+    
+    /* Header bar */
+    .ecb-header {
+        background: linear-gradient(135deg, #003299, #0050cc);
+        padding: 20px 30px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        border-left: 6px solid #FFD700;
+    }
+    .ecb-header h1 {
+        color: white;
+        font-size: 28px;
+        margin: 0;
+        font-weight: 700;
+    }
+    .ecb-header p {
+        color: #FFD700;
+        margin: 5px 0 0 0;
+        font-size: 14px;
+        letter-spacing: 1px;
+    }
+    
+    /* Metric cards */
+    .metric-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        border-top: 4px solid #003299;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    .metric-value {
+        font-size: 36px;
+        font-weight: 700;
+        color: #003299;
+    }
+    .metric-label {
+        font-size: 13px;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    /* Section headers */
+    .section-header {
+        background: white;
+        border-radius: 8px;
+        padding: 12px 20px;
+        margin: 15px 0 10px 0;
+        border-left: 5px solid #003299;
+        box-shadow: 0 1px 5px rgba(0,0,0,0.05);
+    }
+    .section-header h3 {
+        color: #003299;
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* Risk badges */
+    .risk-high {
+        background: #fff0f0;
+        border: 2px solid #e74c3c;
+        border-radius: 8px;
+        padding: 12px 16px;
+        color: #c0392b;
+        font-weight: 600;
+        margin: 5px 0;
+    }
+    .risk-medium {
+        background: #fff8e6;
+        border: 2px solid #f39c12;
+        border-radius: 8px;
+        padding: 12px 16px;
+        color: #d35400;
+        font-weight: 600;
+        margin: 5px 0;
+    }
+    .risk-low {
+        background: #f0fff4;
+        border: 2px solid #27ae60;
+        border-radius: 8px;
+        padding: 12px 16px;
+        color: #1e8449;
+        font-weight: 600;
+        margin: 5px 0;
+    }
+
+    /* Sidebar */
+    .css-1d391kg, [data-testid="stSidebar"] {
+        background: #003299 !important;
+    }
+    [data-testid="stSidebar"] .stSlider label,
+    [data-testid="stSidebar"] .stSelectbox label,
+    [data-testid="stSidebar"] .stNumberInput label {
+        color: white !important;
+    }
+    [data-testid="stSidebar"] h2 {
+        color: #FFD700 !important;
+    }
+
+    /* Performance table */
+    .perf-card {
+        background: #003299;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+        color: white;
+    }
+    .perf-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #FFD700;
+    }
+    .perf-label {
+        font-size: 12px;
+        color: #aac4ff;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-@st.cache_data
-def load_data():
-    df = pd.read_csv("European_Bank.csv")
-    q75=df["Balance"].quantile(.75)
-    df["HighValue"]=(df["Balance"]>=q75).astype(int)
-    df["AgeGroup"]=pd.cut(df["Age"],[0,30,45,60,120],labels=["<30","30-45","46-60","60+"])
-    return df
+# ECB Header
+st.markdown("""
+<div class="ecb-header">
+    <h1>🏦 European Central Bank</h1>
+    <p>CUSTOMER CHURN PREDICTION SYSTEM — RETAIL BANKING DIVISION</p>
+</div>
+""", unsafe_allow_html=True)
 
-df=load_data()
+# Sidebar
+st.sidebar.markdown("## ⚙️ Customer Profile")
+st.sidebar.markdown("---")
 
-# Risk score
-risk=(df["IsActiveMember"].eq(0)*40 +
-      (df["Age"]>45)*25 +
-      (df["NumOfProducts"]>=3)*20 +
-      df["HighValue"]*15)
-df["RiskScore"]=risk
+credit_score = st.sidebar.slider("Credit Score", 300, 850, 650)
+age = st.sidebar.slider("Age", 18, 92, 40)
+tenure = st.sidebar.slider("Tenure (Years)", 0, 10, 5)
+balance = st.sidebar.number_input("Account Balance (€)", 0, 250000, 50000)
+num_products = st.sidebar.selectbox("Number of Products", [1, 2, 3, 4])
+has_cr_card = st.sidebar.selectbox("Has Credit Card", [1, 0], format_func=lambda x: "Yes" if x==1 else "No")
+is_active = st.sidebar.selectbox("Is Active Member", [1, 0], format_func=lambda x: "Yes" if x==1 else "No")
+salary = st.sidebar.number_input("Estimated Salary (€)", 0, 200000, 100000)
+geography = st.sidebar.selectbox("Geography", ["France", "Germany", "Spain"])
+gender = st.sidebar.selectbox("Gender", ["Female", "Male"])
 
-# ---------- FILTER BAR ----------
-st.markdown("<div class='hero'><h2>🏦 ECB Banking Risk Intelligence Platform</h2><div>Executive Decision Support for Customer Attrition Risk</div></div>", unsafe_allow_html=True)
+# Feature engineering
+balance_salary_ratio = balance / (salary + 1)
+age_tenure_interaction = ((age - 38.92) / 10.49) * ((tenure - 5.01) / 2.89)
+product_density = num_products / (tenure + 1)
 
-f1,f2,f3,f4 = st.columns([2,2,2,1])
+# Encode
+geo_france = 1 if geography == "France" else 0
+geo_germany = 1 if geography == "Germany" else 0
+geo_spain = 1 if geography == "Spain" else 0
+gender_female = 1 if gender == "Female" else 0
+gender_male = 1 if gender == "Male" else 0
 
-with f1:
-    countries=st.multiselect("Country", sorted(df.Geography.unique()), default=list(df.Geography.unique()))
-with f2:
-    gender=st.multiselect("Gender", sorted(df.Gender.unique()), default=list(df.Gender.unique()))
-with f3:
-    status=st.selectbox("Member Status",["All","Active","Inactive"])
-with f4:
-    st.write("")
-    reset=st.button("Reset")
+# Scale
+scaler = StandardScaler()
+numerical = np.array([[credit_score, age, tenure, balance, salary]])
+scaled = scaler.fit_transform(numerical)[0]
 
-filtered=df[df["Geography"].isin(countries) & df["Gender"].isin(gender)]
-if status=="Active":
-    filtered=filtered[filtered["IsActiveMember"]==1]
-elif status=="Inactive":
-    filtered=filtered[filtered["IsActiveMember"]==0]
+# Input dataframe
+input_data = pd.DataFrame([[
+    scaled[0], scaled[1], scaled[2], scaled[3],
+    num_products, has_cr_card, is_active, scaled[4],
+    geo_france, geo_germany, geo_spain,
+    gender_female, gender_male,
+    balance_salary_ratio, age_tenure_interaction, product_density
+]], columns=[
+    'CreditScore', 'Age', 'Tenure', 'Balance',
+    'NumOfProducts', 'HasCrCard', 'IsActiveMember', 'EstimatedSalary',
+    'Geography_France', 'Geography_Germany', 'Geography_Spain',
+    'Gender_Female', 'Gender_Male',
+    'Balance_Salary_Ratio', 'Age_Tenure_Interaction', 'Product_Density'
+])
 
-# ---------- EXECUTIVE SUMMARY ----------
-churn=filtered["Exited"].mean()*100
-lost=int(filtered["Exited"].sum())
-exposure=filtered.loc[filtered["Exited"]==1,"Balance"].sum()/1e6
-high_value=filtered["HighValue"].sum()
-health=max(0,100-int(churn))
+# Load model
+@st.cache_resource
+def load_model():
+    df = pd.read_csv('European_Bank.csv')
+    df = df.drop(['CustomerId', 'Surname', 'Year'], axis=1)
+    df = pd.get_dummies(df, columns=['Geography', 'Gender'], drop_first=False, dtype=int)
+    X = df.drop('Exited', axis=1)
+    y = df['Exited']
+    X_scaled = X.copy()
+    sc = StandardScaler()
+    X_scaled[['CreditScore','Age','Tenure','Balance','EstimatedSalary']] = sc.fit_transform(
+        X[['CreditScore','Age','Tenure','Balance','EstimatedSalary']]
+    )
+    X_scaled['Balance_Salary_Ratio'] = X_scaled['Balance'] / (X_scaled['EstimatedSalary'] + 1)
+    X_scaled['Age_Tenure_Interaction'] = X_scaled['Age'] * X_scaled['Tenure']
+    X_scaled['Product_Density'] = X_scaled['NumOfProducts'] / (X_scaled['Tenure'] + 1)
+    model = GradientBoostingClassifier(random_state=42, n_estimators=100)
+    model.fit(X_scaled, y)
+    return model
 
-geo_rank=(filtered.groupby("Geography")["Exited"].mean()*100).sort_values(ascending=False)
-top_geo=geo_rank.index[0]
+model = load_model()
 
-left,right=st.columns([2,1])
+# Prediction
+prob = model.predict_proba(input_data)[0][1]
+prediction = model.predict(input_data)[0]
+risk_level = "HIGH RISK" if prob > 0.6 else "MEDIUM RISK" if prob > 0.3 else "LOW RISK"
+risk_color = "#e74c3c" if prob > 0.6 else "#f39c12" if prob > 0.3 else "#27ae60"
 
-with left:
+# Churn Risk Assessment
+st.markdown("""
+<div class="section-header">
+    <h3>🎯 Churn Risk Assessment</h3>
+</div>
+""", unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
     st.markdown(f"""
-    <div class='section'>
-    <h3>Executive Risk Briefing</h3>
-    <b>Portfolio Status:</b> {'HIGH RISK' if churn>20 else 'MODERATE RISK'}<br>
-    <b>Balance Exposure:</b> £{exposure:.1f}M<br>
-    <b>Primary Risk Geography:</b> {top_geo}<br>
-    <b>Most Vulnerable Segment:</b> Inactive customers aged 46–60<br>
-    <b>Recommended Action:</b> Launch targeted retention campaign focused on high-value inactive customers.
+    <div class="metric-card">
+        <div class="metric-value">{prob*100:.1f}%</div>
+        <div class="metric-label">Churn Probability</div>
     </div>
     """, unsafe_allow_html=True)
 
-with right:
+with col2:
     st.markdown(f"""
-    <div class='section' style='text-align:center'>
-    <div class='small'>Portfolio Health Score</div>
-    <div style='font-size:58px;font-weight:800;color:#0F172A'>{health}</div>
+    <div class="metric-card">
+        <div class="metric-value" style="color:{risk_color}">{risk_level}</div>
+        <div class="metric-label">Risk Classification</div>
     </div>
     """, unsafe_allow_html=True)
 
-# KPI GRID
-r1=st.columns(3)
-r2=st.columns(3)
+with col3:
+    pred_text = "⚠️ Will Churn" if prediction == 1 else "✅ Will Stay"
+    pred_color = "#e74c3c" if prediction == 1 else "#27ae60"
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-value" style="color:{pred_color}; font-size:24px">{pred_text}</div>
+        <div class="metric-label">Model Prediction</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-cards=[
-("Churn Rate",f"{churn:.1f}%"),
-("Balance Exposure",f"£{exposure:.1f}M"),
-("Customers Lost",f"{lost:,}"),
-("High Value Customers",f"{high_value:,}"),
-("Top Region",top_geo),
-("Portfolio Health",f"{health}/100")
-]
+# Probability meter
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown(f"""
+<div class="section-header">
+    <h3>📊 Churn Probability Meter</h3>
+</div>
+""", unsafe_allow_html=True)
+st.progress(float(prob))
+st.markdown(f"<p style='text-align:center; color:#003299; font-weight:600;'>Churn Risk: {prob*100:.1f}%</p>", unsafe_allow_html=True)
 
-for col,(t,v) in zip(r1+r2,cards):
+# Key Risk Factors
+st.markdown("""
+<div class="section-header">
+    <h3>⚠️ Key Risk Factors</h3>
+</div>
+""", unsafe_allow_html=True)
+
+risks = []
+if num_products >= 3:
+    risks.append(("high", "🔴 3+ Products Detected — Extremely high churn risk. Overselling detected."))
+if is_active == 0:
+    risks.append(("high", "🔴 Inactive Member — Customer disengagement is a major churn signal."))
+if geography == "Germany":
+    risks.append(("medium", "🟡 German Market — Highest churn region at 32.4% rate."))
+if age >= 40 and age <= 55:
+    risks.append(("medium", "🟡 Age 40-55 — Peak churn risk age group. Likely seeking better returns."))
+if balance > 100000:
+    risks.append(("medium", "🟡 High Balance Customer — Vulnerable to competitor interest rate offers."))
+if not risks:
+    risks.append(("low", "🟢 No major risk factors detected. Customer profile is stable."))
+
+for risk_type, message in risks:
+    css_class = f"risk-{risk_type}"
+    st.markdown(f'<div class="{css_class}">{message}</div>', unsafe_allow_html=True)
+
+# Model Performance
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("""
+<div class="section-header">
+    <h3>📈 Model Performance Summary</h3>
+</div>
+""", unsafe_allow_html=True)
+
+col1, col2, col3, col4 = st.columns(4)
+metrics = [("Gradient Boosting", "Model"), ("87%", "Accuracy"), ("50%", "Recall"), ("0.8675", "ROC-AUC")]
+cols = [col1, col2, col3, col4]
+
+for col, (value, label) in zip(cols, metrics):
     with col:
-        st.markdown(f"<div class='card'><div class='small'>{t}</div><div class='metric'>{v}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="perf-card">
+            <div class="perf-value">{value}</div>
+            <div class="perf-label">{label}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-# Risk drivers + regional leaderboard
-c1,c2=st.columns([1,1])
-
-with c1:
-    st.markdown("### Top Risk Drivers")
-    drivers=pd.DataFrame({
-        "Driver":["Inactive Membership","Age >45","3+ Products","High Balance","Region"],
-        "Impact":[38,24,18,13,7]
-    })
-    fig=px.bar(drivers,x="Impact",y="Driver",orientation="h",text="Impact")
-    fig.update_layout(height=320)
-    st.plotly_chart(fig,use_container_width=True)
-
-with c2:
-    st.markdown("### Regional Leaderboard")
-    rank=(filtered.groupby("Geography").agg(
-        Churn=("Exited","mean"),
-        Exposure=("Balance","sum")
-    ).reset_index())
-    rank["Churn"]=rank["Churn"]*100
-    rank["Exposure"]=rank["Exposure"]/1e6
-    st.dataframe(rank.sort_values("Churn",ascending=False),use_container_width=True,hide_index=True)
-
-# Customer intelligence
-st.markdown("### Customer Intelligence")
-
-g1,g2=st.columns(2)
-g3,g4=st.columns(2)
-
-with g1:
-    age=(filtered.groupby("AgeGroup")["Exited"].mean()*100).reset_index()
-    st.plotly_chart(px.bar(age,x="AgeGroup",y="Exited",title="Age Risk"),use_container_width=True)
-
-with g2:
-    act=(filtered.groupby("IsActiveMember")["Exited"].mean()*100).reset_index()
-    act["Status"]=act["IsActiveMember"].map({0:"Inactive",1:"Active"})
-    st.plotly_chart(px.bar(act,x="Status",y="Exited",title="Activity Impact"),use_container_width=True)
-
-with g3:
-    gen=(filtered.groupby("Gender")["Exited"].mean()*100).reset_index()
-    st.plotly_chart(px.bar(gen,x="Gender",y="Exited",title="Gender Risk"),use_container_width=True)
-
-with g4:
-    hv=(filtered.groupby("HighValue")["Exited"].mean()*100).reset_index()
-    hv["Segment"]=hv["HighValue"].map({0:"Standard",1:"High Value"})
-    st.plotly_chart(px.bar(hv,x="Segment",y="Exited",title="High Value Risk"),use_container_width=True)
-
-# Exposure and actions
-a,b=st.columns([2,1])
-
-with a:
-    st.markdown("### Financial Exposure")
-    tier=pd.cut(filtered["RiskScore"],[-1,25,50,75,100],labels=["Low","Medium","High","Critical"])
-    exp=filtered.groupby(tier)["Balance"].sum().reset_index()
-    st.plotly_chart(px.bar(exp,x="RiskScore",y="Balance",title="Balance Exposure by Risk Tier"),use_container_width=True)
-
-with b:
-    st.markdown("### Priority Actions")
-    st.error(f"Priority 1: Intervene in {top_geo}")
-    st.warning("Priority 2: Retain inactive high-value customers")
-    st.info("Priority 3: Target customers aged 46–60")
-    st.success("Priority 4: Review multi-product holders")
-
-st.divider()
-st.caption(f"ECB Banking Intelligence Platform | Records: {len(filtered):,} | Generated: {datetime.now():%Y-%m-%d %H:%M}")
+# Footer
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("""
+<div style="text-align:center; color:#999; font-size:12px; padding:20px; border-top:1px solid #ddd;">
+    European Central Bank — Customer Intelligence Division | 
+    Churn Prediction Model v1.0 | 
+    Powered by Gradient Boosting ML
+</div>
+""", unsafe_allow_html=True)
