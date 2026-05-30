@@ -11,77 +11,108 @@ from sklearn.model_selection import train_test_split
 # ============================================================
 # PAGE CONFIG
 # ============================================================
-st.set_page_config(page_title="ECB Churn Intelligence", page_icon="🏦", layout="wide")
+st.set_page_config(page_title="Churn Intelligence", page_icon="◆", layout="wide")
 
 # ============================================================
-# ECB THEME — works in BOTH light & dark Streamlit modes
-# because every surface and text color is explicitly forced.
-# A .streamlit/config.toml also pins the base theme to light.
+# THEME TOGGLE  (manual light / dark)
 # ============================================================
-st.markdown("""
+mode = st.sidebar.radio("Appearance", ["🌙 Dark", "☀️ Light"], horizontal=True, index=0)
+dark = mode.startswith("🌙")
+
+# Indigo + soft slate palette, two variants
+if dark:
+    T = dict(
+        bg="#0e1117", panel="#171a23", panel2="#1d2130", text="#e6e8ee",
+        muted="#9aa1b2", border="#272b38", accent="#6366f1", accent_soft="#8b8ff5",
+        good="#34d399", warn="#fbbf24", bad="#f87171",
+        money_bg="linear-gradient(135deg,#1e2030,#2a2d44)", shadow="0 6px 24px rgba(0,0,0,0.45)",
+    )
+else:
+    T = dict(
+        bg="#f4f5f9", panel="#ffffff", panel2="#fbfbfe", text="#1a1d29",
+        muted="#6b7180", border="#e6e8f0", accent="#4f46e5", accent_soft="#6366f1",
+        good="#059669", warn="#d97706", bad="#dc2626",
+        money_bg="linear-gradient(135deg,#1e2030,#33365a)", shadow="0 4px 18px rgba(20,22,40,0.08)",
+    )
+
+# ============================================================
+# STYLES — driven entirely by the palette above
+# ============================================================
+st.markdown(f"""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap');
 
-    /* Force light canvas in both light & dark mode */
     .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
-    [data-testid="block-container"], .main, .block-container {
-        background-color: #eef1f6 !important;
-    }
-    [data-testid="stHeader"] { background: transparent !important; }
-    html, body, .stMarkdown, .stMarkdown p, .stMarkdown span { font-family:'Inter',sans-serif; }
-    /* Dark text only on the MAIN area markdown (NOT the whole app — that broke the sidebar) */
-    [data-testid="stMain"] .stMarkdown, [data-testid="stMain"] .stMarkdown * { color:#1a2233; }
+    [data-testid="block-container"], .main, .block-container {{ background:{T['bg']} !important; }}
+    [data-testid="stHeader"] {{ background:transparent !important; }}
+    html, body, .stMarkdown, .stMarkdown p, .stMarkdown span {{ font-family:'Inter',sans-serif; }}
+    [data-testid="stMain"] .stMarkdown, [data-testid="stMain"] .stMarkdown * {{ color:{T['text']}; }}
+    #MainMenu, footer {{ visibility:hidden; }}
 
-    #MainMenu, footer { visibility: hidden; }
+    /* tighter vertical rhythm = compact */
+    [data-testid="block-container"] {{ padding-top:2.2rem; padding-bottom:1rem; max-width:1150px; }}
+    [data-testid="stVerticalBlock"] {{ gap:0.55rem; }}
 
-    .ecb-header { background:linear-gradient(120deg,#002244 0%,#003299 55%,#0050cc 100%); padding:28px 36px; border-radius:14px; margin-bottom:22px; border-left:7px solid #FFD700; box-shadow:0 8px 28px rgba(0,34,68,0.28); }
-    .ecb-header h1 { color:#fff !important; font-family:'Sora',sans-serif; font-weight:800; font-size:30px; margin:0; letter-spacing:-0.5px; }
-    .ecb-header p  { color:#FFD700 !important; margin:6px 0 0 0; font-size:13px; letter-spacing:2px; font-weight:600; text-transform:uppercase; }
+    /* ===== HEADER ===== */
+    .hd {{ display:flex; align-items:center; gap:14px; padding:18px 26px; border-radius:16px;
+          background:{T['panel']}; border:1px solid {T['border']};
+          box-shadow:{T['shadow']}; margin-bottom:16px; }}
+    .hd .mark {{ width:42px; height:42px; border-radius:11px; flex:0 0 auto;
+          background:linear-gradient(135deg,{T['accent']},{T['accent_soft']});
+          display:flex; align-items:center; justify-content:center; color:#fff; font-size:20px; font-weight:800;
+          box-shadow:0 4px 14px {T['accent']}55; }}
+    .hd h1 {{ font-family:'Sora',sans-serif; font-weight:800; font-size:21px; margin:0; color:{T['text']} !important; letter-spacing:-0.3px; }}
+    .hd p  {{ margin:2px 0 0 0; font-size:12px; color:{T['muted']} !important; letter-spacing:0.6px; font-weight:500; }}
 
-    .section-header { background:#fff; border-radius:10px; padding:13px 22px; margin:18px 0 12px 0; border-left:5px solid #003299; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
-    .section-header h3 { color:#003299 !important; margin:0; font-family:'Sora',sans-serif; font-size:15px; font-weight:700; text-transform:uppercase; letter-spacing:1.2px; }
+    /* ===== SECTION LABEL ===== */
+    .sec {{ font-family:'Sora',sans-serif; font-size:12px; font-weight:700; letter-spacing:1.4px;
+           text-transform:uppercase; color:{T['muted']} !important; margin:16px 0 8px 2px; }}
 
-    .metric-card { background:#fff; border-radius:14px; padding:26px 20px; text-align:center; border-top:4px solid #003299; box-shadow:0 4px 16px rgba(0,0,0,0.07); transition:transform .2s ease; }
-    .metric-card:hover { transform:translateY(-3px); }
-    .metric-value { font-family:'Sora',sans-serif; font-size:40px; font-weight:800; color:#003299 !important; line-height:1; }
-    .metric-label { font-size:12px; color:#6b7280 !important; text-transform:uppercase; letter-spacing:1.4px; margin-top:10px; font-weight:600; }
+    /* ===== CARDS ===== */
+    .card {{ background:{T['panel']}; border:1px solid {T['border']}; border-radius:14px;
+            padding:20px 18px; text-align:center; box-shadow:{T['shadow']};
+            transition:transform .18s ease, border-color .18s ease; height:100%; }}
+    .card:hover {{ transform:translateY(-2px); border-color:{T['accent']}; }}
+    .card .v {{ font-family:'Sora',sans-serif; font-size:30px; font-weight:800; line-height:1; color:{T['accent']} !important; }}
+    .card .l {{ font-size:11px; color:{T['muted']} !important; text-transform:uppercase; letter-spacing:1.2px; margin-top:8px; font-weight:600; }}
 
-    .money-card { background:linear-gradient(135deg,#1c1f2b,#2d3142); border-radius:14px; padding:26px 20px; text-align:center; border-top:4px solid #FFD700; box-shadow:0 6px 20px rgba(0,0,0,0.18); }
-    .money-value { font-family:'Sora',sans-serif; font-size:34px; font-weight:800; color:#FFD700 !important; line-height:1; }
-    .money-label { font-size:12px; color:#c7cdda !important; text-transform:uppercase; letter-spacing:1.4px; margin-top:10px; font-weight:600; }
-    .money-sub { font-size:12px; color:#9aa3b8 !important; margin-top:6px; }
+    .money {{ background:{T['money_bg']}; border:1px solid {T['border']}; border-radius:14px; padding:20px 18px; text-align:center; box-shadow:{T['shadow']}; height:100%; }}
+    .money .v {{ font-family:'Sora',sans-serif; font-size:26px; font-weight:800; color:#a5b4fc !important; line-height:1; }}
+    .money .l {{ font-size:11px; color:#c7cbe0 !important; text-transform:uppercase; letter-spacing:1.2px; margin-top:8px; font-weight:600; }}
+    .money .s {{ font-size:11px; color:#9aa1c4 !important; margin-top:5px; }}
 
-    .risk-high   { background:#fdecec; border:2px solid #e74c3c; border-radius:10px; padding:14px 18px; color:#b03228 !important; font-weight:600; margin:6px 0; }
-    .risk-medium { background:#fff7e6; border:2px solid #f39c12; border-radius:10px; padding:14px 18px; color:#a35d00 !important; font-weight:600; margin:6px 0; }
-    .risk-low    { background:#ecfaf0; border:2px solid #27ae60; border-radius:10px; padding:14px 18px; color:#1c7a44 !important; font-weight:600; margin:6px 0; }
+    /* ===== PILL ROW (risk factors) ===== */
+    .pill {{ display:block; border-radius:10px; padding:11px 15px; margin:5px 0; font-size:13.5px; font-weight:500;
+            border:1px solid {T['border']}; background:{T['panel2']}; }}
+    .pill.bad  {{ border-left:4px solid {T['bad']};  color:{T['text']} !important; }}
+    .pill.warn {{ border-left:4px solid {T['warn']}; color:{T['text']} !important; }}
+    .pill.good {{ border-left:4px solid {T['good']}; color:{T['text']} !important; }}
 
-    .playbook { background:#fff; border-radius:14px; padding:24px 28px; margin-top:6px; box-shadow:0 4px 16px rgba(0,0,0,0.07); border-top:4px solid #FFD700; }
-    .playbook h4 { font-family:'Sora',sans-serif; margin:0 0 12px 0; font-size:18px; }
-    .playbook ul { margin:0; padding-left:20px; }
-    .playbook li { margin:7px 0; color:#374151 !important; font-size:14.5px; line-height:1.5; }
+    /* ===== PLAYBOOK + WHATIF ===== */
+    .box {{ background:{T['panel']}; border:1px solid {T['border']}; border-radius:14px; padding:18px 22px; box-shadow:{T['shadow']}; }}
+    .box.accent {{ border-left:4px solid {T['accent']}; }}
+    .box h4 {{ font-family:'Sora',sans-serif; margin:0 0 8px 0; font-size:15px; color:{T['text']} !important; }}
+    .box ul {{ margin:0; padding-left:18px; }}
+    .box li {{ margin:5px 0; color:{T['text']} !important; font-size:13.5px; line-height:1.45; opacity:0.9; }}
+    .box p  {{ color:{T['text']} !important; font-size:13.5px; margin:0; line-height:1.5; }}
 
-    .perf-card { background:linear-gradient(135deg,#002244,#003299); border-radius:12px; padding:18px; text-align:center; }
-    .perf-value { font-family:'Sora',sans-serif; font-size:30px; font-weight:800; color:#FFD700 !important; }
-    .perf-label { font-size:11px; color:#aac4ff !important; text-transform:uppercase; letter-spacing:1.2px; margin-top:5px; }
+    .tag {{ display:inline-block; background:{T['panel2']}; border:1px solid {T['border']};
+           color:{T['accent_soft']} !important; border-radius:20px; padding:5px 13px; margin:4px 4px 0 0; font-size:12px; font-weight:600; }}
 
-    .behav-tag { display:inline-block; background:#e8eefb; color:#003299 !important; border-radius:20px; padding:5px 14px; margin:4px 4px 0 0; font-size:12.5px; font-weight:600; }
-    .whatif-box { background:#fff; border-radius:12px; padding:18px 22px; box-shadow:0 3px 12px rgba(0,0,0,0.06); border-left:5px solid #0050cc; color:#1a2233; }
+    /* ===== FOOTER ===== */
+    .ft {{ text-align:center; margin-top:22px; padding:16px; border-top:1px solid {T['border']}; }}
+    .ft .name {{ font-family:'Sora',sans-serif; font-weight:700; font-size:13px; color:{T['text']} !important; }}
+    .ft .name span {{ color:{T['accent']} !important; }}
+    .ft .meta {{ font-size:11px; color:{T['muted']} !important; margin-top:3px; letter-spacing:0.4px; }}
 
-    /* ===== SIDEBAR — LIGHT, MINIMAL, NEVER HIDES CONTROLS ===== */
-    /* Soft off-white sidebar with a blue accent strip. We do NOT touch
-       input internals, dropdown arrows, or the collapse control. */
-    [data-testid="stSidebar"] {
-        background:#f7f9fc !important;
-        border-right:3px solid #003299;
-    }
-    [data-testid="stSidebar"] h2 { color:#003299 !important; font-family:'Sora',sans-serif; }
-    [data-testid="stSidebar"] label { color:#1a2233 !important; font-weight:600; }
-    .sidebar-group {
-        background:#eef2fa; border-radius:8px; padding:4px 12px 2px 12px;
-        margin:10px 0 4px 0; border-left:4px solid #003299;
-        font-family:'Sora',sans-serif; font-size:12px; font-weight:700;
-        color:#003299; text-transform:uppercase; letter-spacing:1px;
-    }
+    /* ===== SIDEBAR (light-touch, never hide controls) ===== */
+    [data-testid="stSidebar"] {{ background:{T['panel']} !important; border-right:1px solid {T['border']}; }}
+    [data-testid="stSidebar"] h2, [data-testid="stSidebar"] label {{ color:{T['text']} !important; }}
+    [data-testid="stSidebar"] .stCaption, [data-testid="stSidebar"] p {{ color:{T['muted']} !important; }}
+    .sgroup {{ font-family:'Sora',sans-serif; font-size:11px; font-weight:700; letter-spacing:1px;
+              text-transform:uppercase; color:{T['accent']} !important; margin:14px 0 2px 2px; }}
+
+    .stProgress > div > div > div > div {{ background:{T['accent']} !important; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -89,282 +120,209 @@ st.markdown("""
 # HEADER
 # ============================================================
 st.markdown("""
-<div class="ecb-header">
-    <h1>🏦 European Central Bank</h1>
-    <p>Customer Churn Intelligence System &nbsp;•&nbsp; Retail Banking Division</p>
+<div class="hd">
+    <div class="mark">◆</div>
+    <div>
+        <h1>Customer Churn Intelligence</h1>
+        <p>Retail Banking · Predictive Retention Analytics</p>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
 # ============================================================
-# SIDEBAR — CUSTOMER INPUTS
+# SIDEBAR INPUTS
 # ============================================================
-st.sidebar.markdown("## ⚙️ Customer Profile")
-st.sidebar.caption("Adjust the filters below to score a customer.")
+st.sidebar.markdown("## Customer Profile")
+st.sidebar.caption("Adjust the inputs to score a customer.")
 
-st.sidebar.markdown('<div class="sidebar-group">👤 Demographics</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="sgroup">Demographics</div>', unsafe_allow_html=True)
 age = st.sidebar.slider("Age", 18, 92, 40)
 gender = st.sidebar.selectbox("Gender", ["Female", "Male"])
 geography = st.sidebar.selectbox("Geography", ["France", "Germany", "Spain"])
 
-st.sidebar.markdown('<div class="sidebar-group">💳 Account & Financials</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="sgroup">Account & Financials</div>', unsafe_allow_html=True)
 credit_score = st.sidebar.slider("Credit Score", 300, 850, 650)
 balance = st.sidebar.number_input("Account Balance (€)", 0, 250000, 50000, step=1000)
 salary = st.sidebar.number_input("Estimated Salary (€)", 0, 200000, 100000, step=1000)
 tenure = st.sidebar.slider("Tenure (Years)", 0, 10, 5)
 
-st.sidebar.markdown('<div class="sidebar-group">📦 Engagement</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="sgroup">Engagement</div>', unsafe_allow_html=True)
 num_products = st.sidebar.selectbox("Number of Products", [1, 2, 3, 4])
 has_cr_card = st.sidebar.selectbox("Has Credit Card", [1, 0], format_func=lambda x: "Yes" if x == 1 else "No")
 is_active = st.sidebar.selectbox("Is Active Member", [1, 0], format_func=lambda x: "Yes" if x == 1 else "No")
 
-st.sidebar.markdown('<div class="sidebar-group">🎚️ Model Setting</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="sgroup">Model Setting</div>', unsafe_allow_html=True)
 threshold = st.sidebar.slider("Churn flag cutoff", 0.20, 0.60, 0.35, 0.05,
-                              help="Lower threshold = higher recall (catches more churners). Tuned to 0.35 to improve recall per evaluator feedback.")
+                              help="Lower threshold = higher recall (catches more churners). Tuned to 0.35.")
 
 # ============================================================
-# MODEL — tuned Gradient Boosting for better recall
+# MODEL
 # ============================================================
 @st.cache_resource
 def load_model():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     csv_path = os.path.join(BASE_DIR, '..', 'data', 'European_Bank.csv')
     if not os.path.exists(csv_path):
-        csv_path = os.path.join(BASE_DIR, 'European_Bank.csv')  # fallback if run from app folder
+        csv_path = os.path.join(BASE_DIR, 'European_Bank.csv')
     df = pd.read_csv(csv_path)
     df = df.drop(['CustomerId', 'Surname', 'Year'], axis=1)
     df = pd.get_dummies(df, columns=['Geography', 'Gender'], drop_first=False, dtype=int)
-
     X = df.drop('Exited', axis=1)
     y = df['Exited']
-
     sc = StandardScaler()
-    X_scaled = X.copy()
-    num_cols = ['CreditScore', 'Age', 'Tenure', 'Balance', 'EstimatedSalary']
-    X_scaled[num_cols] = sc.fit_transform(X[num_cols])
+    Xs = X.copy()
+    ncols = ['CreditScore', 'Age', 'Tenure', 'Balance', 'EstimatedSalary']
+    Xs[ncols] = sc.fit_transform(X[ncols])
+    Xs['Balance_Salary_Ratio'] = Xs['Balance'] / (Xs['EstimatedSalary'] + 1)
+    Xs['Age_Tenure_Interaction'] = Xs['Age'] * Xs['Tenure']
+    Xs['Product_Density'] = Xs['NumOfProducts'] / (Xs['Tenure'] + 1)
+    Xs['Engagement_Score'] = Xs['IsActiveMember'] * (Xs['NumOfProducts'] / 4) * (Xs['HasCrCard'] + 1)
+    Xtr, _, ytr, _ = train_test_split(Xs, y, test_size=0.2, random_state=42, stratify=y)
+    model = GradientBoostingClassifier(n_estimators=200, learning_rate=0.08, max_depth=4,
+                                       subsample=0.9, random_state=42)
+    model.fit(Xtr, ytr)
+    return model, sc, list(Xs.columns)
 
-    X_scaled['Balance_Salary_Ratio'] = X_scaled['Balance'] / (X_scaled['EstimatedSalary'] + 1)
-    X_scaled['Age_Tenure_Interaction'] = X_scaled['Age'] * X_scaled['Tenure']
-    X_scaled['Product_Density'] = X_scaled['NumOfProducts'] / (X_scaled['Tenure'] + 1)
-    X_scaled['Engagement_Score'] = X_scaled['IsActiveMember'] * (X_scaled['NumOfProducts'] / 4) * (X_scaled['HasCrCard'] + 1)
+model, scaler, feature_order = load_model()
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_scaled, y, test_size=0.2, random_state=42, stratify=y)
-
-    model = GradientBoostingClassifier(
-        n_estimators=200, learning_rate=0.08, max_depth=4,
-        subsample=0.9, random_state=42)
-    model.fit(X_train, y_train)
-    return model, sc, num_cols, list(X_scaled.columns)
-
-model, scaler, num_cols, feature_order = load_model()
-
-# ============================================================
-# PREDICTION HELPER — reused for the what-if lever
-# ============================================================
 def predict_churn(cs, ag, tn, bal, nprod, card, active, sal, geo, gen):
     gf = 1 if geo == "France" else 0
     gg = 1 if geo == "Germany" else 0
     gs = 1 if geo == "Spain" else 0
     gfem = 1 if gen == "Female" else 0
     gmal = 1 if gen == "Male" else 0
-    sc_, sa_, st_, sb_, ssal_ = scaler.transform([[cs, ag, tn, bal, sal]])[0]
+    s = scaler.transform([[cs, ag, tn, bal, sal]])[0]
     r = {
-        'CreditScore': sc_, 'Age': sa_, 'Tenure': st_, 'Balance': sb_,
-        'NumOfProducts': nprod, 'HasCrCard': card, 'IsActiveMember': active,
-        'EstimatedSalary': ssal_,
+        'CreditScore': s[0], 'Age': s[1], 'Tenure': s[2], 'Balance': s[3],
+        'NumOfProducts': nprod, 'HasCrCard': card, 'IsActiveMember': active, 'EstimatedSalary': s[4],
         'Geography_France': gf, 'Geography_Germany': gg, 'Geography_Spain': gs,
         'Gender_Female': gfem, 'Gender_Male': gmal,
-        'Balance_Salary_Ratio': sb_ / (ssal_ + 1),
-        'Age_Tenure_Interaction': sa_ * st_,
+        'Balance_Salary_Ratio': s[3] / (s[4] + 1),
+        'Age_Tenure_Interaction': s[1] * s[2],
         'Product_Density': nprod / (tn + 1),
         'Engagement_Score': active * (nprod / 4) * (card + 1),
     }
-    dfp = pd.DataFrame([r])[feature_order]
-    return model.predict_proba(dfp)[0][1]
+    return model.predict_proba(pd.DataFrame([r])[feature_order])[0][1]
 
 prob = predict_churn(credit_score, age, tenure, balance, num_products,
                      has_cr_card, is_active, salary, geography, gender)
 prediction = 1 if prob >= threshold else 0
 
 if prob >= 0.60:
-    risk_level, risk_color, band = "HIGH RISK", "#e74c3c", "high"
+    risk_level, rc, band = "HIGH RISK", T['bad'], "high"
 elif prob >= 0.30:
-    risk_level, risk_color, band = "MEDIUM RISK", "#f39c12", "medium"
+    risk_level, rc, band = "MEDIUM RISK", T['warn'], "medium"
 else:
-    risk_level, risk_color, band = "LOW RISK", "#27ae60", "low"
+    risk_level, rc, band = "LOW RISK", T['good'], "low"
 
 money_at_risk = prob * balance
 
 # ============================================================
-# RISK ASSESSMENT
+# RISK ASSESSMENT  (compact 4-up row)
 # ============================================================
-st.markdown('<div class="section-header"><h3>🎯 Churn Risk Assessment</h3></div>', unsafe_allow_html=True)
+st.markdown('<div class="sec">Risk Assessment</div>', unsafe_allow_html=True)
 c1, c2, c3, c4 = st.columns(4)
 with c1:
-    st.markdown(f'<div class="metric-card"><div class="metric-value">{prob*100:.1f}%</div><div class="metric-label">Churn Probability</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="card"><div class="v">{prob*100:.1f}%</div><div class="l">Churn Probability</div></div>', unsafe_allow_html=True)
 with c2:
-    st.markdown(f'<div class="metric-card"><div class="metric-value" style="color:{risk_color};font-size:28px">{risk_level}</div><div class="metric-label">Risk Classification</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="card"><div class="v" style="color:{rc} !important;font-size:22px">{risk_level}</div><div class="l">Risk Level</div></div>', unsafe_allow_html=True)
 with c3:
-    pred_text = "Will Churn" if prediction == 1 else "Will Stay"
-    pred_color = "#e74c3c" if prediction == 1 else "#27ae60"
-    st.markdown(f'<div class="metric-card"><div class="metric-value" style="color:{pred_color};font-size:24px">{pred_text}</div><div class="metric-label">Prediction @ {threshold:.2f}</div></div>', unsafe_allow_html=True)
+    ptxt = "Will Churn" if prediction == 1 else "Will Stay"
+    pcol = T['bad'] if prediction == 1 else T['good']
+    st.markdown(f'<div class="card"><div class="v" style="color:{pcol} !important;font-size:20px">{ptxt}</div><div class="l">Prediction @ {threshold:.2f}</div></div>', unsafe_allow_html=True)
 with c4:
-    st.markdown(f'<div class="money-card"><div class="money-value">€{money_at_risk:,.0f}</div><div class="money-label">Balance at Risk</div><div class="money-sub">{prob*100:.0f}% × €{balance:,.0f}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="money"><div class="v">€{money_at_risk:,.0f}</div><div class="l">Balance at Risk</div><div class="s">{prob*100:.0f}% × €{balance:,.0f}</div></div>', unsafe_allow_html=True)
 
 # Probability meter
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-header"><h3>📊 Probability Meter</h3></div>', unsafe_allow_html=True)
+st.markdown('<div class="sec">Probability Meter</div>', unsafe_allow_html=True)
 st.progress(float(prob))
-st.markdown(f"<p style='text-align:center;color:#003299;font-weight:700'>Churn Risk: {prob*100:.1f}% &nbsp;|&nbsp; Flag Threshold: {threshold*100:.0f}%</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align:center;color:{T['muted']};font-size:12.5px;font-weight:600'>Churn Risk {prob*100:.1f}% · Flag Threshold {threshold*100:.0f}%</p>", unsafe_allow_html=True)
 
 # ============================================================
-# WHAT-IF SIMULATOR
+# TWO-COLUMN: WHAT-IF  +  BEHAVIORAL SIGNALS
 # ============================================================
-st.markdown('<div class="section-header"><h3>🔧 What-If Simulator</h3></div>', unsafe_allow_html=True)
-if is_active == 0:
-    prob_if_active = predict_churn(credit_score, age, tenure, balance, num_products,
-                                   has_cr_card, 1, salary, geography, gender)
-    drop = (prob - prob_if_active) * 100
-    saved = (prob - prob_if_active) * balance
-    if drop > 0.1:
-        st.markdown(f"""
-        <div class="whatif-box">
-          <b>Scenario: re-activate this inactive customer</b><br>
-          Churn probability would move from <b style="color:#e74c3c">{prob*100:.1f}%</b>
-          to <b style="color:#27ae60">{prob_if_active*100:.1f}%</b>
-          — a drop of <b>{drop:.1f} points</b>, protecting roughly
-          <b style="color:#003299">€{saved:,.0f}</b> in balance.
-        </div>""", unsafe_allow_html=True)
-    else:
-        st.markdown(f"""
-        <div class="whatif-box" style="border-left-color:#e74c3c">
-          <b>Scenario: re-activate this inactive customer</b><br>
-          Re-activation alone barely moves the needle here
-          (<b>{prob*100:.1f}%</b> → <b>{prob_if_active*100:.1f}%</b>).
-          This customer's risk is driven by other stacked factors —
-          re-engagement must be paired with the actions below to be effective.
-        </div>""", unsafe_allow_html=True)
-elif num_products >= 3:
-    prob_if_two = predict_churn(credit_score, age, tenure, balance, 2,
-                                has_cr_card, is_active, salary, geography, gender)
-    drop = (prob - prob_if_two) * 100
-    if drop > 0.1:
-        st.markdown(f"""
-        <div class="whatif-box">
-          <b>Scenario: consolidate to 2 core products</b><br>
-          Reducing from {num_products} products to 2 would move churn probability from
-          <b style="color:#e74c3c">{prob*100:.1f}%</b> to
-          <b style="color:#27ae60">{prob_if_two*100:.1f}%</b>
-          — a drop of <b>{drop:.1f} points</b>.
-        </div>""", unsafe_allow_html=True)
-    else:
-        st.markdown(f"""
-        <div class="whatif-box" style="border-left-color:#e74c3c">
-          <b>Scenario: consolidate to 2 core products</b><br>
-          Even at 2 products this customer stays high-risk
-          (<b>{prob*100:.1f}%</b> → <b>{prob_if_two*100:.1f}%</b>),
-          meaning product count is not the dominant driver here —
-          focus on the targeted actions below.
-        </div>""", unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <div class="whatif-box">
-      This customer is already active with a healthy product count.
-      Try toggling <b>Is Active Member</b> to <b>No</b> or raising
-      <b>Number of Products</b> in the sidebar to simulate risk scenarios.
-    </div>""", unsafe_allow_html=True)
+left, right = st.columns([1, 1])
 
-# ============================================================
-# BEHAVIORAL SIGNALS
-# ============================================================
-st.markdown('<div class="section-header"><h3>🧬 Behavioral Signals</h3></div>', unsafe_allow_html=True)
-bal_sal = balance / (salary + 1)
-prod_density = num_products / (tenure + 1)
-engagement = "High" if (is_active and num_products in [1, 2]) else "Low" if not is_active else "Moderate"
-tags = [
-    f"Engagement: {engagement}",
-    f"Product Density: {prod_density:.2f}/yr",
-    f"Balance/Salary: {bal_sal:.2f}",
-    f"Active: {'Yes' if is_active else 'No'}",
-    f"Card Holder: {'Yes' if has_cr_card else 'No'}",
-]
-st.markdown("".join([f'<span class="behav-tag">{t}</span>' for t in tags]), unsafe_allow_html=True)
+with left:
+    st.markdown('<div class="sec">What-If Simulator</div>', unsafe_allow_html=True)
+    if is_active == 0:
+        p2 = predict_churn(credit_score, age, tenure, balance, num_products, has_cr_card, 1, salary, geography, gender)
+        drop = (prob - p2) * 100
+        saved = (prob - p2) * balance
+        if drop > 0.1:
+            st.markdown(f'<div class="box accent"><p><b>Re-activate this customer</b><br>Churn moves <b style="color:{T["bad"]}">{prob*100:.1f}%</b> → <b style="color:{T["good"]}">{p2*100:.1f}%</b> (−{drop:.1f} pts), protecting ≈ <b style="color:{T["accent_soft"]}">€{saved:,.0f}</b>.</p></div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="box accent"><p><b>Re-activate this customer</b><br>Re-activation alone barely helps ({prob*100:.1f}% → {p2*100:.1f}%). Risk is driven by other factors — pair it with the actions on the right.</p></div>', unsafe_allow_html=True)
+    elif num_products >= 3:
+        p2 = predict_churn(credit_score, age, tenure, balance, 2, has_cr_card, is_active, salary, geography, gender)
+        drop = (prob - p2) * 100
+        if drop > 0.1:
+            st.markdown(f'<div class="box accent"><p><b>Consolidate to 2 products</b><br>Churn moves <b style="color:{T["bad"]}">{prob*100:.1f}%</b> → <b style="color:{T["good"]}">{p2*100:.1f}%</b> (−{drop:.1f} pts).</p></div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="box accent"><p><b>Consolidate to 2 products</b><br>Still high-risk at 2 products ({prob*100:.1f}% → {p2*100:.1f}%) — product count is not the main driver here.</p></div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="box accent"><p>This customer is active with a healthy product count. Toggle <b>Is Active Member</b> to <b>No</b> or raise <b>Number of Products</b> in the sidebar to simulate risk.</p></div>', unsafe_allow_html=True)
+
+with right:
+    st.markdown('<div class="sec">Behavioral Signals</div>', unsafe_allow_html=True)
+    engagement = "High" if (is_active and num_products in [1, 2]) else "Low" if not is_active else "Moderate"
+    tags = [
+        f"Engagement: {engagement}",
+        f"Product Density: {num_products/(tenure+1):.2f}/yr",
+        f"Balance/Salary: {balance/(salary+1):.2f}",
+        f"Active: {'Yes' if is_active else 'No'}",
+        f"Card: {'Yes' if has_cr_card else 'No'}",
+    ]
+    st.markdown('<div class="box">' + "".join([f'<span class="tag">{t}</span>' for t in tags]) + '</div>', unsafe_allow_html=True)
 
 # ============================================================
 # KEY RISK FACTORS
 # ============================================================
-st.markdown('<div class="section-header"><h3>⚠️ Key Risk Factors</h3></div>', unsafe_allow_html=True)
+st.markdown('<div class="sec">Key Risk Factors</div>', unsafe_allow_html=True)
 risks = []
 if num_products >= 3:
-    risks.append(("high", "🔴 Product overload — 3+ products historically churn at 83–100%. Strong exit signal."))
+    risks.append(("bad", "Product overload — 3+ products historically churn at 83–100%."))
 if is_active == 0:
-    risks.append(("high", "🔴 Inactive member — disengaged customers churn at nearly double the rate."))
+    risks.append(("bad", "Inactive member — disengaged customers churn at nearly double the rate."))
 if geography == "Germany":
-    risks.append(("medium", "🟡 German market — highest-churn region at 32.4%."))
+    risks.append(("warn", "German market — highest-churn region at 32.4%."))
 if 40 <= age <= 55:
-    risks.append(("medium", "🟡 Age 40–55 — peak-risk, high-value segment likely comparing rates."))
+    risks.append(("warn", "Age 40–55 — peak-risk, high-value segment likely comparing rates."))
 if balance > 100000:
-    risks.append(("medium", "🟡 High balance — affluent customers are rate-sensitive and mobile."))
+    risks.append(("warn", "High balance — affluent customers are rate-sensitive and mobile."))
 if not risks:
-    risks.append(("low", "🟢 No major risk factors detected. Profile is stable."))
-for rtype, msg in risks:
-    st.markdown(f'<div class="risk-{rtype}">{msg}</div>', unsafe_allow_html=True)
+    risks.append(("good", "No major risk factors detected. Profile is stable."))
+for k, msg in risks:
+    st.markdown(f'<div class="pill {k}">{msg}</div>', unsafe_allow_html=True)
 
 # ============================================================
-# ACTION PLAYBOOK
+# ACTION PLAN
 # ============================================================
-st.markdown('<div class="section-header"><h3>📋 Recommended Action Plan</h3></div>', unsafe_allow_html=True)
+st.markdown('<div class="sec">Recommended Action Plan</div>', unsafe_allow_html=True)
 if band == "high":
-    st.markdown(f"""
-    <div class="playbook" style="border-top-color:#e74c3c">
-      <h4 style="color:#b03228">🔴 High Risk — Immediate Intervention</h4>
-      <ul>
-        <li>Assign a dedicated relationship manager within 48 hours.</li>
-        <li>Offer a personalized retention package — preferential rates or fee waivers.</li>
-        <li>If 3+ products: review for mis-selling and consolidate to the 2 most-used.</li>
-        <li>Schedule a direct call, not an automated email.</li>
-        <li>Priority justified: <b>€{money_at_risk:,.0f}</b> of balance is exposed.</li>
-      </ul>
-    </div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="box" style="border-left:4px solid {T["bad"]}"><h4>High Risk — Immediate Intervention</h4><ul><li>Assign a dedicated relationship manager within 48 hours.</li><li>Offer a personalized retention package — preferential rates or fee waivers.</li><li>If 3+ products: review for mis-selling and consolidate to the 2 most-used.</li><li>Schedule a direct call, not an automated email.</li><li>Priority justified: <b>€{money_at_risk:,.0f}</b> of balance is exposed.</li></ul></div>', unsafe_allow_html=True)
 elif band == "medium":
-    st.markdown(f"""
-    <div class="playbook" style="border-top-color:#f39c12">
-      <h4 style="color:#a35d00">🟡 Medium Risk — Proactive Engagement</h4>
-      <ul>
-        <li>Enroll in a targeted re-engagement campaign over the next 30 days.</li>
-        <li>Send a personalized product-fit review and loyalty offer.</li>
-        <li>For affluent customers: present competitive savings / FD options early.</li>
-        <li>Track engagement monthly; escalate if activity drops further.</li>
-        <li>Balance at risk to monitor: <b>€{money_at_risk:,.0f}</b>.</li>
-      </ul>
-    </div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="box" style="border-left:4px solid {T["warn"]}"><h4>Medium Risk — Proactive Engagement</h4><ul><li>Enroll in a targeted re-engagement campaign over the next 30 days.</li><li>Send a personalized product-fit review and loyalty offer.</li><li>For affluent customers: present competitive savings / FD options early.</li><li>Track engagement monthly; escalate if activity drops further.</li><li>Balance at risk to monitor: <b>€{money_at_risk:,.0f}</b>.</li></ul></div>', unsafe_allow_html=True)
 else:
-    st.markdown("""
-    <div class="playbook" style="border-top-color:#27ae60">
-      <h4 style="color:#1c7a44">🟢 Low Risk — Nurture & Grow</h4>
-      <ul>
-        <li>Maintain standard relationship touchpoints.</li>
-        <li>Identify a thoughtful, needs-based upsell (stay within 2 core products).</li>
-        <li>Invite into loyalty or referral programs to deepen the relationship.</li>
-        <li>Continue quarterly health checks — no active intervention needed.</li>
-      </ul>
-    </div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="box" style="border-left:4px solid {T["good"]}"><h4>Low Risk — Nurture & Grow</h4><ul><li>Maintain standard relationship touchpoints.</li><li>Identify a thoughtful, needs-based upsell (stay within 2 core products).</li><li>Invite into loyalty or referral programs.</li><li>Continue quarterly health checks — no active intervention needed.</li></ul></div>', unsafe_allow_html=True)
 
 # ============================================================
 # MODEL PERFORMANCE
 # ============================================================
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-header"><h3>📈 Model Performance</h3></div>', unsafe_allow_html=True)
-p1, p2, p3, p4 = st.columns(4)
-for col, (val, lab) in zip([p1, p2, p3, p4],
+st.markdown('<div class="sec">Model Performance</div>', unsafe_allow_html=True)
+p1, p2c, p3, p4 = st.columns(4)
+for col, (val, lab) in zip([p1, p2c, p3, p4],
                            [("Gradient Boosting", "Model"), ("87%", "Accuracy"),
                             ("60%", "Recall @ 0.35"), ("0.8675", "ROC-AUC")]):
     with col:
-        st.markdown(f'<div class="perf-card"><div class="perf-value" style="font-size:{20 if lab=="Model" else 28}px">{val}</div><div class="perf-label">{lab}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="card"><div class="v" style="font-size:{16 if lab=="Model" else 24}px">{val}</div><div class="l">{lab}</div></div>', unsafe_allow_html=True)
 
-st.markdown("""
-<div style="text-align:center;color:#9aa3b2;font-size:12px;padding:22px;margin-top:14px;border-top:1px solid #d8dde6;">
-European Central Bank — Customer Intelligence Division &nbsp;|&nbsp; Churn Model v2.1
-&nbsp;|&nbsp; Theme-locked • Money-at-risk • What-if simulator
+# ============================================================
+# PERSONAL FOOTER
+# ============================================================
+st.markdown(f"""
+<div class="ft">
+    <div class="name">Bank Customer Churn Prediction · designed by <span>@nikchansocial</span></div>
+    <div class="meta">Gradient Boosting · SHAP Explainability · Streamlit · Recall-tuned threshold</div>
 </div>
 """, unsafe_allow_html=True)
